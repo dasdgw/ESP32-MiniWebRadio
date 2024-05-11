@@ -348,9 +348,17 @@ TFT tft(TFT_CONTROLLER, DISPLAY_INVERSION);
     ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝   */
 
 // clang-format off
+
+#if defined(SD_MMC_SPI)
+    auto spiSD = SPIClass(VSPI);
+    fs::FS SD_CARD = (fs::FS) SD;
+#else
+    fs::FS SD_CARD = (fs::FS) SD_MMC;
+#endif
+
 boolean defaultsettings(){
-    if(!SD_MMC.exists("/settings.json")){
-        File file = SD_MMC.open("/settings.json","w", true);
+    if(!SD_CARD.exists("/settings.json")){
+        File file = SD_CARD.open("/settings.json","w", true);
         char*  jO = x_ps_malloc(512); // JSON Object
         strcpy(jO, "{");
         strcat(jO, "\"volume\":");            strcat(jO, "12,"); // 0...21
@@ -375,7 +383,7 @@ boolean defaultsettings(){
         if(jO){free(jO); jO = NULL;}
     }
 
-    File file = SD_MMC.open("/settings.json","r", false);
+    File file = SD_CARD.open("/settings.json","r", false);
     char*  jO = x_ps_calloc(1024, 1);
     char* tmp = x_ps_malloc(512);
     file.readBytes(jO, 1024);
@@ -428,12 +436,12 @@ boolean saveStationsToNVS() {
     String   Hide = "", Cy = "", StationName = "", StreamURL = "", currentLine = "", tmp = "";
     uint16_t cnt = 0;
     // StationList
-    if(!SD_MMC.exists("/stations.csv")) {
+    if(!SD_CARD.exists("/stations.csv")) {
         SerialPrintfln(ANSI_ESC_RED "SD_MMC/stations.csv not found");
         return false;
     }
 
-    File file = SD_MMC.open("/stations.csv");
+    File file = SD_CARD.open("/stations.csv");
     if(file) { // try to read from SD_MMC
         stations.clear();
         currentLine = file.readStringUntil('\n'); // read the headline
@@ -563,7 +571,7 @@ void updateSettings(){
     sprintf(tmp, ",\"timeFormat\":%i}", _timeFormat);                           strcat(jO, tmp);
 
     if(_settingsHash != simpleHash(jO)) {
-        File file = SD_MMC.open("/settings.json", "w", false);
+        File file = SD_CARD.open("/settings.json", "w", false);
         if(!file) {
             log_e("file \"settings.json\" not found");
             return;
@@ -1340,14 +1348,14 @@ void display_sleeptime(int8_t ud) { // set sleeptimer
 
 boolean drawImage(const char* path, uint16_t posX, uint16_t posY, uint16_t maxWidth, uint16_t maxHeigth) {
     const char* scImg = scaleImage(path);
-    if(!SD_MMC.exists(scImg)) {
+    if(!SD_CARD.exists(scImg)) {
         if(indexOf(scImg, "/.", 0) > 0) return false; // empty filename
         SerialPrintfln("AUDIO_info:  " ANSI_ESC_RED "file \"%s\" not found", scImg);
         return false;
     }
-    if(endsWith(scImg, "bmp")) { return tft.drawBmpFile(SD_MMC, scImg, posX, posY, maxWidth, maxHeigth); }
-    if(endsWith(scImg, "jpg")) { return tft.drawJpgFile(SD_MMC, scImg, posX, posY, maxWidth, maxHeigth); }
-    if(endsWith(scImg, "gif")) { return tft.drawGifFile(SD_MMC, scImg, posX, posY, 0); }
+    if(endsWith(scImg, "bmp")) { return tft.drawBmpFile(SD_CARD, scImg, posX, posY, maxWidth, maxHeigth); }
+    if(endsWith(scImg, "jpg")) { return tft.drawJpgFile(SD_CARD, scImg, posX, posY, maxWidth, maxHeigth); }
+    if(endsWith(scImg, "gif")) { return tft.drawGifFile(SD_CARD, scImg, posX, posY, 0); }
 
     SerialPrintfln(ANSI_ESC_RED "the file \"%s\" contains neither a bmp, a gif nor a jpj graphic", scImg);
     return false; // neither jpg nor bmp
@@ -1359,11 +1367,11 @@ bool SD_listDir(const char* path, boolean audioFilesOnly, boolean withoutDirs) {
     File file;                                                                   // vector _SD_content, add to filename ANSI_ESC_YELLOW and file size
     vector_clear_and_shrink(_SD_content);
     if(audioFile) audioFile.close();
-    if(!SD_MMC.exists(path)) {
+    if(!SD_CARD.exists(path)) {
         SerialPrintfln(ANSI_ESC_RED "SD_MMC/%s not exist", path);
         return false;
     }
-    audioFile = SD_MMC.open(path);
+    audioFile = SD_CARD.open(path);
     if(!audioFile.isDirectory()) {
         SerialPrintfln(ANSI_ESC_RED "SD_MMC/%s is not a directory", path);
         audioFile.close();
@@ -1463,7 +1471,7 @@ boolean isPlaylist(File file) {
  *****************************************************************************************************************************************************/
 
 bool preparePlaylistFromFile(const char* path) {
-    File playlistFile = SD_MMC.open(path);
+    File playlistFile = SD_CARD.open(path);
     if(!playlistFile) {log_e("playlistfile path not found"); return false;}
 
 
@@ -1515,8 +1523,8 @@ bool preparePlaylistFromFile(const char* path) {
 //____________________________________________________________________________________________________________________________________________________
 
 bool preparePlaylistFromFolder(const char* path){  // all files whithin a folder
-    if(!SD_MMC.exists(path)) {SerialPrintfln(ANSI_ESC_RED "SD_MMC/%s not exist", path); return false;}
-    File folder = SD_MMC.open(path);
+    if(!SD_CARD.exists(path)) {SerialPrintfln(ANSI_ESC_RED "SD_MMC/%s not exist", path); return false;}
+    File folder = SD_CARD.open(path);
     if(!folder.isDirectory()) { SerialPrintfln(ANSI_ESC_RED "SD_MMC/%s is not a directory", path); folder.close(); return false;}
     vector_clear_and_shrink(_PLS_content); // clear _PLS_content first
 
@@ -1650,7 +1658,7 @@ bool connectToWiFi() {
     }
     WiFi.setHostname("MiniWebRadio");
     if(psramFound()) WiFi.useStaticBuffers(true);
-    File file = SD_MMC.open("/networks.csv"); // try credentials given in "/networks.txt"
+    File file = SD_CARD.open("/networks.csv"); // try credentials given in "/networks.txt"
     if(file) {                                // try to read from SD_MMC
         String str = "";
         while(file.available()) {
@@ -1803,12 +1811,30 @@ void stopSong() {
     _f_shuffle = false;
 }
 
+
 /*****************************************************************************************************************************************************
  *                                                                    S E T U P                                                                      *
  *****************************************************************************************************************************************************/
 void setup() {
     Serial.begin(MONITOR_SPEED);
     Serial.print("\n\n");
+#if defined(ESP32_2432S028R)
+    /*
+    // sd card cs cyd
+    pinMode(5, OUTPUT);
+    digitalWrite(5, LOW);
+    */
+    // display cs  cyd
+    pinMode(15, OUTPUT);
+    digitalWrite(15, LOW);
+    // display rst  cyd
+    pinMode(2, OUTPUT);
+    digitalWrite(2, LOW);
+    // display back light cyd
+    pinMode(21, OUTPUT);
+    digitalWrite(21, HIGH);
+#endif
+
     const char* chipModel = ESP.getChipModel();
     uint8_t     avMajor = ESP_ARDUINO_VERSION_MAJOR;
     uint8_t     avMinor = ESP_ARDUINO_VERSION_MINOR;
@@ -1883,11 +1909,7 @@ void setup() {
     stations.begin("Stations", false); // instance of preferences for stations (name, url ...)
     pref.begin("Pref", false);         // instance of preferences from AccessPoint (SSID, PW ...)
 
-#if CONFIG_IDF_TARGET_ESP32
-    tft.begin(TFT_CS, TFT_DC, VSPI, TFT_MOSI, TFT_MISO, TFT_SCK); // Init TFT interface ESP32
-#else
-    tft.begin(TFT_CS, TFT_DC, FSPI, TFT_MOSI, TFT_MISO, TFT_SCK); // Init TFT interface ESP32S3
-#endif
+    tft.begin(TFT_CS, TFT_DC, TFT_SPI, TFT_MOSI, TFT_MISO, TFT_SCK); // Init TFT interface ESP32
 
     tft.setFrequency(TFT_FREQUENCY);
     tft.setRotation(TFT_ROTATION);
@@ -1900,12 +1922,17 @@ void setup() {
 
     SerialPrintfln("setup: ....  Init SD card");
     if(IR_PIN >= 0) pinMode(IR_PIN, INPUT_PULLUP); // if ir_pin is read only, have a external resistor (~10...40KOhm)
+#if defined(SD_MMC_SPI)
+    spiSD.begin(SD_MMC_CLK, SD_MMC_D0, SD_MMC_CMD, SD_MMC_CS);
+    if(!SD.begin(SD_MMC_CS, spiSD, SDMMC_FREQUENCY)) {
+#else
     pinMode(SD_MMC_D0, INPUT_PULLUP);
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     SD_MMC.setPins(SD_MMC_CLK, SD_MMC_CMD, SD_MMC_D0);
 #endif
     int32_t sdmmc_frequency = SDMMC_FREQUENCY / 1000; // MHz -> KHz, default is 40MHz
     if(!SD_MMC.begin("/sdcard", true, false, sdmmc_frequency)) {
+#endif
         clearAll();
         tft.setFont(_fonts[6]);
         tft.setTextColor(TFT_YELLOW);
@@ -1914,19 +1941,32 @@ void setup() {
         SerialPrintfln(ANSI_ESC_RED "SD Card Mount Failed");
         return;
     }
+#if defined(SD_MMC_SPI)
+    float cardSize = ((float)SD.cardSize()) / (1024 * 1024);
+    float freeSize = ((float)SD.cardSize() - SD.usedBytes()) / (1024 * 1024);
+#else
     float cardSize = ((float)SD_MMC.cardSize()) / (1024 * 1024);
     float freeSize = ((float)SD_MMC.cardSize() - SD_MMC.usedBytes()) / (1024 * 1024);
+#endif
     SerialPrintfln(ANSI_ESC_WHITE "setup: ....  SD card found, %.1f MB by %.1f MB free", freeSize, cardSize);
+    SD_listDir("/", false, true);
     _f_SD_MMCfound = true;
     if(ESP.getFlashChipSize() > 80000000) { FFat.begin(); }
     defaultsettings(); // first init
-    if(TFT_BL >= 0) ledcAttach(TFT_BL, 1200, 8); // 1200 Hz PWM and 8 bit resolution
+    if(TFT_BL >= 0){
+#if 1
+      ledcAttach(TFT_BL, 1200, 8); // 1200 Hz PWM and 8 bit resolution
+#else // old framework
+      ledcSetup(TFT_BL, 1200, 8);
+      ledcAttachPin(TFT_BL, TFT_BL);
+#endif
+    }
     if(getBrightness() >= 5) setTFTbrightness(getBrightness());
     else setTFTbrightness(5);
     if(TFT_CONTROLLER > 6) SerialPrintfln(ANSI_ESC_RED "The value in TFT_CONTROLLER is invalid");
     drawImage("/common/MiniWebRadioV3.jpg", 0, 0); // Welcomescreen
     SerialPrintfln("setup: ....  seek for stations.csv");
-    File file = SD_MMC.open("/stations.csv");
+    File file = SD_CARD.open("/stations.csv");
     if(!file) {
         clearAll();
         tft.setFont(_fonts[6]);
@@ -1946,7 +1986,7 @@ void setup() {
     }
     strcpy(_myIP, WiFi.localIP().toString().c_str());
     SerialPrintfln("setup: ....  connected to " ANSI_ESC_CYAN "%s" ANSI_ESC_WHITE ", IP address is " ANSI_ESC_CYAN "%s", WiFi.SSID().c_str(), _myIP);
-    ftpSrv.begin(SD_MMC, FTP_USERNAME, FTP_PASSWORD); // username, password for ftp.
+    ftpSrv.begin(SD_CARD, FTP_USERNAME, FTP_PASSWORD); // username, password for ftp.
 
     setRTC(_TZString.c_str());
 
@@ -2180,7 +2220,7 @@ void changeBtn_released(uint8_t btnNr) {
     drawImage(_releaseBtn[btnNr], btnNr * _winButton.w, _winButton.y);
 }
 
-void savefile(const char* fileName, uint32_t contentLength) { // save the uploadfile on SD_MMC
+void savefile(const char* fileName, uint32_t contentLength) { // save the uploadfile on SD_CARD
     char fn[256];
 
     if(!_f_SD_Upload && endsWith(fileName, "jpg")) {
@@ -2188,7 +2228,7 @@ void savefile(const char* fileName, uint32_t contentLength) { // save the upload
         strcat(fn, _prefix);
         if(!startsWith(fileName, "/")) strcat(fn, "/");
         strcat(fn, fileName);
-        if(webSrv.uploadB64image(SD_MMC, fn, contentLength)) {
+        if(webSrv.uploadB64image(SD_CARD, fn, contentLength)) {
             SerialPrintfln("save image " ANSI_ESC_CYAN "%s" ANSI_ESC_WHITE " to SD card was successfully", fn);
             webSrv.sendStatus(200);
         }
@@ -2201,7 +2241,7 @@ void savefile(const char* fileName, uint32_t contentLength) { // save the upload
             strcat(fn, fileName);
         }
         else { strcpy(fn, fileName); }
-        if(webSrv.uploadfile(SD_MMC, fn, contentLength)) {
+        if(webSrv.uploadfile(SD_CARD, fn, contentLength)) {
             SerialPrintfln("save file:   " ANSI_ESC_CYAN "%s" ANSI_ESC_WHITE " to SD card was successfully", fn);
             webSrv.sendStatus(200);
         }
@@ -2228,7 +2268,7 @@ void SD_playFile(const char* path, uint32_t resumeFilePos, bool showFN) {
     if(!path) return;                            // avoid a possible crash
     if(endsWith(path, "ogg")) resumeFilePos = 0; // resume only mp3, m4a, flac and wav
     if(endsWith(path, "m3u")) {
-        if(SD_MMC.exists(path)) {
+        if(SD_CARD.exists(path)) {
             preparePlaylistFromFile(path);
             processPlaylist(true);
         }
@@ -2251,27 +2291,27 @@ void SD_playFile(const char* path, uint32_t resumeFilePos, bool showFN) {
 
 bool SD_rename(const char* src, const char* dest) {
     bool success = false;
-    if(SD_MMC.exists(src)) {
+    if(SD_CARD.exists(src)) {
         log_i("exists");
-        success = SD_MMC.rename(src, dest);
+        success = SD_CARD.rename(src, dest);
     }
     return success;
 }
 
 bool SD_newFolder(const char* folderPathName) {
     bool success = false;
-    success = SD_MMC.mkdir(folderPathName);
+    success = SD_CARD.mkdir(folderPathName);
     return success;
 }
 
 bool SD_delete(const char* itemPath) {
     bool success = false;
-    if(SD_MMC.exists(itemPath)) {
-        File dirTest = SD_MMC.open(itemPath, "r");
+    if(SD_CARD.exists(itemPath)) {
+        File dirTest = SD_CARD.open(itemPath, "r");
         bool isDir = dirTest.isDirectory();
         dirTest.close();
-        if(isDir) success = SD_MMC.rmdir(itemPath);
-        else success = SD_MMC.remove(itemPath);
+        if(isDir) success = SD_CARD.rmdir(itemPath);
+        else success = SD_CARD.remove(itemPath);
     }
     return success;
 }
@@ -2370,7 +2410,7 @@ boolean copySDtoFFat(const char* path) {
     uint8_t buffer[1024];
     size_t  r = 0, w = 0;
     size_t  len = 0;
-    File    file1 = SD_MMC.open(path, "r");
+    File    file1 = SD_CARD.open(path, "r");
     File    file2 = FFat.open(path, "w");
     while(true) {
         r = file1.read(buffer, 1024);
@@ -3795,7 +3835,7 @@ void WEBSRV_onCommand(const String cmd, const String param, const String arg){  
     if(cmd == "index.js"){          SerialPrintfln("Script:      " ANSI_ESC_ORANGE "index.js");                                                       // via XMLHttpRequest
                                     webSrv.show(index_js, webSrv.JS); return;}
 
-    if(cmd == "favicon.ico"){       webSrv.streamfile(SD_MMC, "/favicon.ico"); return;}                                                               // via XMLHttpRequest
+    if(cmd == "favicon.ico"){       webSrv.streamfile(SD_CARD, "/favicon.ico"); return;}                                                               // via XMLHttpRequest
 
     if(cmd == "test"){              sprintf(_chbuf, "free heap: %lu, Inbuff filled: %lu, Inbuff free: %lu, PSRAM filled %lu, PSRAM free %lu",
                                         (long unsigned)ESP.getFreeHeap(), (long unsigned)audioInbuffFilled(), (long unsigned)audioInbuffFree(),
@@ -3858,7 +3898,7 @@ void WEBSRV_onCommand(const String cmd, const String param, const String arg){  
 
     if(cmd == "get_tftSize"){       if(_tftSize){webSrv.send("tftSize=", "m");} else{webSrv.send("tftSize=", "s");} return;};
 
-    if(cmd == "getTimeZones"){      webSrv.streamfile(SD_MMC, "/timezones.csv"); return;}
+    if(cmd == "getTimeZones"){      webSrv.streamfile(SD_CARD, "/timezones.csv"); return;}
 
     if(cmd == "setTimeZone"){       _TZName = param;  _TZString = arg;
                                     SerialPrintfln("Timezone: .. " ANSI_ESC_BLUE "%s, %s", param.c_str(), arg.c_str());
@@ -3917,12 +3957,12 @@ void WEBSRV_onCommand(const String cmd, const String param, const String arg){  
                                     ESP.restart();}
 
     if(cmd.startsWith("SD/")){      String str = cmd.substring(2);                                                                                    // via XMLHttpRequest
-                                    if(!webSrv.streamfile(SD_MMC, scaleImage(str.c_str()))){
+                                    if(!webSrv.streamfile(SD_CARD, scaleImage(str.c_str()))){
                                         SerialPrintfln("webSrv: ...  " ANSI_ESC_YELLOW "File not found " ANSI_ESC_RED "\"%s\"", str.c_str());
-                                        webSrv.streamfile(SD_MMC, scaleImage("/common/unknown.jpg"));}
+                                        webSrv.streamfile(SD_CARD, scaleImage("/common/unknown.jpg"));}
                                     return;}
 
-    if(cmd == "SD_Download"){       webSrv.streamfile(SD_MMC, param.c_str());
+    if(cmd == "SD_Download"){       webSrv.streamfile(SD_CARD, param.c_str());
                                     SerialPrintfln("webSrv: ...  " ANSI_ESC_YELLOW "Download  " ANSI_ESC_ORANGE "\"%s\"", param.c_str());
                                     return;}
 

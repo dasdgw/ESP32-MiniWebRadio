@@ -4,6 +4,29 @@
 #pragma once
 #pragma GCC optimize("Os") // optimize for code size
 
+#if defined(ESP32_2432S028R)
+#define _SSID               "mySSID"                        // Your WiFi credentials here
+#define _PW                 "myWiFiPassword"                // Or in textfile on SD-card
+#define DECODER             1                               // (1)MAX98357A PCM5102A CS4344... (2)AC101, (3)ES8388, (4)WM8978
+#define TFT_CONTROLLER      0                               // (0)ILI9341, (1)HX8347D, (2)ILI9486a, (3)ILI9486b, (4)ILI9488, (5)ST7796, (6)ST7796RPI
+#define DISPLAY_INVERSION   0                               // (0) off (1) on
+#define TFT_ROTATION        3                               // 1 or 3 (landscape)
+#define TFT_FREQUENCY       40000000                        // 80000000, 40000000, 27000000, 20000000, 10000000
+#define TP_VERSION          0                               // (0)ILI9341, (1)ILI9341RPI, (2)HX8347D, (3)ILI9486, (4)ILI9488, (5)ST7796, (3)ST7796RPI
+#define TP_ROTATION         1                               // 1 or 3 (landscape)
+#define TP_H_MIRROR         0                               // (0) default, (1) mirror up <-> down
+#define TP_V_MIRROR         0                               // (0) default, (1) mittor left <-> right
+#define AUDIOTASK_CORE      0                               // 0 or 1
+#define AUDIOTASK_PRIO      2                               // 0 ... 24  Priority of the Task (0...configMAX_PRIORITIES -1)
+#define I2S_COMM_FMT        0                               // (0) MAX98357A PCM5102A CS4344, (1) LSBJ (Least Significant Bit Justified format) PT8211
+#define SDMMC_FREQUENCY     40000000                        // 80000000, 40000000, 27000000, 20000000, 10000000 not every SD Card will run at 80MHz
+#define FTP_USERNAME        "esp32"                         // user and pw in FTP Client
+#define FTP_PASSWORD        "esp32"
+#define CONN_TIMEOUT        500                             // unencrypted connection timeout in ms (http://...)
+#define CONN_TIMEOUT_SSL    2000                            // encrypted connection timeout in ms (https://...)
+
+#else
+
 #define _SSID               "mySSID"                        // Your WiFi credentials here
 #define _PW                 "myWiFiPassword"                // Or in textfile on SD-card
 #define DECODER             1                               // (1)MAX98357A PCM5102A CS4344... (2)AC101, (3)ES8388, (4)WM8978
@@ -23,7 +46,7 @@
 #define FTP_PASSWORD        "esp32"
 #define CONN_TIMEOUT        500                             // unencrypted connection timeout in ms (http://...)
 #define CONN_TIMEOUT_SSL    2000                            // encrypted connection timeout in ms (https://...)
-
+#endif
 //————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 #include <Arduino.h>
@@ -54,7 +77,42 @@
 #include "KCX_BT_Emitter.h"
 
 #ifdef CONFIG_IDF_TARGET_ESP32
-    // Digital I/O used
+#if defined(ESP32_2432S028R)
+#warning "ESP32_2432S028R"
+// Digital I/O used
+        #define TFT_CS           15
+        #define TFT_DC            2
+        #define TFT_BL           32  // at -1 the brightness menu is not displayed
+        #define TP_IRQ           39  // VN
+        #define TP_CS            22//5
+        #define SD_MMC_CS         5
+        #define SD_MMC_D0        19 //2  // cannot be changed
+        #define SD_MMC_CLK       18 //14  // cannot be changed
+        #define SD_MMC_CMD       23 //15  // cannot be changed
+        #define SD_MMC_SPI     VSPI // VSPI, HSPI, FSPI?
+        #define IR_PIN           35  // IR Receiver (if available)
+        #define TFT_MOSI         13 //23  // TFT and TP (VSPI)
+        #define TFT_MISO         12 //19  // TFT and TP (VSPI)
+        #define TFT_SCK          14 //18  // TFT and TP (VSPI)
+        #define TFT_SPI        HSPI // VSPI, HSPI, FSPI?
+
+        #define I2S_DOUT         25
+        #define I2S_BCLK         27
+        #define I2S_LRC          26
+        #define I2S_MCLK          0  // mostly not used
+
+        #define I2C_DATA         -1  // some DACs are controlled via I2C
+        #define I2C_CLK          -1
+        #define SD_DETECT        -1  // some pins on special boards: Lyra, Olimex, A1S ...
+        #define HP_DETECT        -1
+        #define AMP_ENABLED      -1
+
+        #define BT_EMITTER_RX    -1//33  // TX pin - KCX Bluetooth Transmitter (-1 if not available)
+        #define BT_EMITTER_TX    -1//36  // RX pin - KCX Bluetooth Transmitter (-1 if not available)
+        #define BT_EMITTER_LINK  -1//34  // high if connected                  (-1 if not available)
+        #define BT_EMITTER_MODE  -1//13  // high transmit - low receive        (-1 if not available)
+#else
+// Digital I/O used
         #define TFT_CS           22
         #define TFT_DC           21
         #define TFT_BL           32  // at -1 the brightness menu is not displayed
@@ -64,6 +122,7 @@
         #define SD_MMC_CLK       14  // cannot be changed
         #define SD_MMC_CMD       15  // cannot be changed
         #define IR_PIN           35  // IR Receiver (if available)
+        #define TFT_SPI        VSPI
         #define TFT_MOSI         23  // TFT and TP (VSPI)
         #define TFT_MISO         19  // TFT and TP (VSPI)
         #define TFT_SCK          18  // TFT and TP (VSPI)
@@ -84,6 +143,7 @@
         #define BT_EMITTER_LINK  34  // high if connected                  (-1 if not available)
         #define BT_EMITTER_MODE  13  // high transmit - low receive        (-1 if not available)
 #endif
+#endif
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     // Digital I/O used
@@ -96,6 +156,7 @@
         #define SD_MMC_CLK       13
         #define SD_MMC_CMD       14
         #define IR_PIN            4  // IR Receiver (if available)
+        #define TFT_SPI        FSPI
         #define TFT_MOSI         18  // TFT and TP (FSPI)
         #define TFT_MISO          2  // TFT and TP (FSPI)
         #define TFT_SCK          17  // TFT and TP (FSPI)

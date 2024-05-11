@@ -7,6 +7,9 @@
 #include "WiFiClientSecure.h"
 #include "Audio.h"     // see my repository at github "ESP32-audioI2S"
 
+// internal dac is only supported idf<5
+//Audio audio(true, I2S_DAC_CHANNEL_BOTH_EN);
+//Audio audio(true, 3);
 Audio audio;
 
 extern RTIME rtc;
